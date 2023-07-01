@@ -7,13 +7,16 @@ import importlib
 import asyncio
 from utils.helpers import initialize_db
 from mutagen.mp3 import MP3
+from dotenv import load_dotenv
+
+load_dotenv()
+token = os.getenv('APITOKEN') #remember to put your token in the .env file 
 # from "GoenkaBot\cogs\meditation.py" import Meditation
 from meditation import Meditation
 # Load settings
-with open("config/settings.json", "r") as file:
-    settings = json.load(file)
+# with open("config/settings.json", "r") as file:
+#     settings = json.load(file)
 # load token from json
-token = settings["token"]
 # Initialize bot
 intents = discord.Intents.default()
 intents = discord.Intents.all()
@@ -109,4 +112,5 @@ async def start_meditation(ctx, duration: int):
     await vc.disconnect()
 
    # Run bot
+print(token)
 bot.run(token) #   : Change this to your bot's token within the settings.json file
