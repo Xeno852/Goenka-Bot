@@ -8,6 +8,8 @@ class Streaks(commands.Cog):
 
     @commands.command()
     async def check_streaks(self, ctx):
+        
+        print("Command CHECK STREAKS.. triggered")
         connection = sqlite3.connect("data/database.sqlite")
         cursor = connection.cursor()
         

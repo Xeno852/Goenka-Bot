@@ -1,15 +1,17 @@
 import discord
 from discord.ext import commands
 import asyncio
-import sqlite4
+import sqlite3
 
 class Meditation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        pr
+        print("Meditation cog initialized.")
     
     @commands.command()
     async def start_meditation(self, ctx, duration: int):
+        # await ctx.send("This is a command from the cog."
+    # async def start_meditation(self, ctx):
         print("Command start_meditation triggered")
         # Check if the user is in a voice channel
         if ctx.author.voice is None:
@@ -36,9 +38,8 @@ class Meditation(commands.Cog):
         vc.play(discord.FFmpegPCMAudio("data/audio/outro-chanting.mp3"))
 
         # Wait for outro duration then leave
-        outro_duration = 174  # You can adjust this based on the length of your outro audio
+        outro_duration = 173  # You can adjust this based on the length of your outro audio
         await asyncio.sleep(outro_duration)
-        await asyncio.sleep(15) # Sleep to feel more natural before leaving 
         await vc.disconnect()
         
         # TODO: Update streaks here
