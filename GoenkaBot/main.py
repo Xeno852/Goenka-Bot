@@ -1,6 +1,7 @@
+from datetime import datetime, timedelta
+
 import os
 import asyncio
-import datetime
 import sqlite3
 import logging
 from dotenv import load_dotenv
@@ -288,57 +289,170 @@ def execute_sql(sql, parameters=()):
 
 
 def ensure_user_exists(user_id):
-    # Query to check if the user already exists in the user_stats table
-    check_user_query = "SELECT user_id FROM user_stats WHERE user_id = ?"
-    user = execute_sql(check_user_query, (user_id,))
+    logging.info(f"Ensuring user {user_id} exists in user_stats table...")
+    connection = sqlite3.connect(DATABASE_PATH)
+    cursor = connection.cursor()
     
-    # If user does not exist in the table, insert them with default values
-    if not user:
-        insert_user_query = "INSERT INTO user_stats (user_id, streak, total_time, average_time) VALUES (?, 0, 0, 0.0)"
-        execute_sql(insert_user_query, (user_id,))
+    # Check if the user exists
+    cursor.execute("SELECT user_id FROM user_stats WHERE user_id = ?", (user_id,))
+    if cursor.fetchone() is None:
+        # If the user doesn't exist, insert them into the user_stats table
+        cursor.execute("INSERT INTO user_stats (user_id) VALUES (?)", (user_id,))
+        logging.info(f"User {user_id} added to user_stats table.")
+    connection.commit()
+    connection.close()
 
+# New function to update user stats
+# Bot command to get meditation stats
 
+def update_user_stats(user_id, duration_minutes):
+    # Query to get existing user stats
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    ensure_user_exists(user_id)
+    cursor.execute("SELECT total_sessions, total_time FROM user_stats WHERE user_id=?",                   (user_id,))
+    result = cursor.fetchone()
+    conn.close()
 
+    # Calculate new stats
+    if result:
+        total_sessions, total_time = result
+        total_sessions += 1
+        total_time += duration_minutes
+        average_time = total_time / total_sessions
 
-from datetime import datetime, timedelta
-
-def update_streak(user_id, last_meditated):
-    # Convert the last_meditated string to a datetime object
-    last_meditated_date = datetime.strptime(last_meditated, '%Y-%m-%d')
-    
-    # Get the current date
-    current_date = datetime.now()
-    
-    # Calculate the days between the current date and last meditated date
-    days_diff = (current_date - last_meditated_date).days
-    
-    # If the user has already meditated today, do nothing
-    if days_diff == 0:
-        return
-    
-    # If the user meditated yesterday, increment the streak
-    elif days_diff == 1:
-        update_query = "UPDATE user_stats SET streak = streak + 1, last_meditated = ? WHERE user_id = ?"
-        execute_sql(update_query, (current_date.strftime('%Y-%m-%d'), user_id))
-    
-    # If the user missed a day or more, reset the streak
+        # Update existing user
+        execute_sql("UPDATE user_stats SET total_sessions = ?, total_time = ?, average_time = ?, last_meditation_date = ? WHERE user_id = ?",
+                    (total_sessions, total_time, average_time, datetime.date.today().isoformat(), user_id))
     else:
-        reset_query = "UPDATE user_stats SET streak = 0, last_meditated = ? WHERE user_id = ?"
-        execute_sql(reset_query, (current_date.strftime('%Y-%m-%d'), user_id))
+        # Insert new user
+        execute_sql("INSERT INTO user_stats (user_id, total_sessions, total_time, average_time, last_meditation_date) VALUES (?, ?, ?, ?, ?)",
+                    (user_id, 1, duration_minutes, duration_minutes, datetime.date.today().isoformat()))
 
 
-def add_to_streak(member_id):
-    logging.info(f"Adding to streak for member_id: {member_id}")
+
+
+
+# def update_streak(user_id, last_meditated):
+#     # Convert the last_meditated string to a datetime object
+#     last_meditated_date = datetime.strptime(last_meditated, '%Y-%m-%d')
+    
+#     # Get the current date
+#     current_date = datetime.now()
+    
+#     # Calculate the days between the current date and last meditated date
+#     days_diff = (current_date - last_meditated_date).days
+    
+#     # If the user has already meditated today, do nothing
+#     if days_diff == 0:
+#         return
+    
+#     # If the user meditated yesterday, increment the streak
+#     elif days_diff == 1:
+#         update_query = "UPDATE user_stats SET current_streak = current_streak + 1, last_meditated = ? WHERE user_id = ?"
+#         execute_sql(update_query, (current_date.strftime('%Y-%m-%d'), user_id))
+    
+#     # If the user missed a day or more, reset the streak
+#     else:
+#         reset_query = "UPDATE user_stats SET current_streak = 0, last_meditated = ? WHERE user_id = ?"
+#         execute_sql(reset_query, (current_date.strftime('%Y-%m-%d'), user_id))
+
+
+def check_streak_and_update(user_id):
+    logging.info(f"Checking streak for member_id: {user_id}")
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    # Reset the current_streak if the user has missed a day or more, including today
+    cursor.execute("""
+        UPDATE user_stats
+            SET current_streak = 0
+             WHERE user_id = ? 
+             AND last_meditation_date < ?;
+    """, (user_id, (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')))
+    print("**************************")
+    print("date time now: {}".format(datetime.now().strftime('%Y-%m-%d')))
+    print("date time now - 1: {}".format((datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')))
+    print("**************************")
+     # Update longest_streak if current_streak is greater
+    cursor.execute("""
+        UPDATE user_stats
+            SET longest_streak = current_streak
+             WHERE user_id = ? AND current_streak > longest_streak;
+    """, (user_id,))
+    
+    conn.commit()
+    conn.close()
+
+
+def add_streaks(user_id):
+    logging.info(f"Adding to streak for member_id: {user_id}")
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+
+    # Increment the current_streak if the user has not meditated today yet but has meditated yesterday
+    # or if it is 0 update by 1
+#TODO 
+    
+
+    cursor.execute("""
+        UPDATE user_stats
+            SET current_streak = current_streak + 1
+             WHERE user_id = ? 
+             AND last_meditation_date < ? AND last_meditation_date >= ?;
+    """, (user_id, datetime.now().strftime('%Y-%m-%d'), (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')))
+
+
+    # cursor.execute("""
+    #     UPDATE user_stats
+    #     SET current_streak = current_streak + 1
+    #     WHERE user_id = ?;
+    # """, (user_id,))
+    
+
+    conn.commit()
+    conn.close()
+
+
+@bot.command()
+async def meditation_stats(ctx, member: discord.Member):
+    # Query to get user stats
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    check_streak_and_update(member.id)
+
+    cursor.execute("SELECT total_sessions, total_time, average_time, current_streak, longest_streak FROM user_stats WHERE user_id=?",                   (str(member.id),))
+    result = cursor.fetchone()
+    conn.close()
+
+    # Display stats
+    if result:
+        total_sessions, total_time, average_time, current_streak, longest_streak = result
+        await ctx.send(f"📈☸️🧘 Meditation Stats for {member.mention} 🧘☸️📈\n"
+                       f"--------------------------------------------\n"
+                       f"🔥 Current Streak: {current_streak} days\n"
+                       f"⭐ Longest Streak: {longest_streak} days\n"
+                       f"📆 Total Sessions: {total_sessions}\n"
+                       f"💧 Total Time Meditated: {total_time} minutes\n"
+                       f"🕒 Average Session Length: {average_time:.2f} minutes")
+    else:
+        await ctx.send(f"No meditation stats found for {member.mention}. 😢")
+
+
+
+def add_last_meditation_date(member_id):
+    logging.info(f"Adding last meditation date for member_id: {member_id}")
+    ensure_user_exists(member_id)
     print("Before executing the SQL query...")
     execute_sql('''
         UPDATE user_stats
-        SET streak = streak + 1
+        SET last_meditation_date = ?
         WHERE user_id = ?;
-    ''', (member_id,))
+    ''', (datetime.now().strftime('%Y-%m-%d'), member_id))
     print("After executing the SQL query...")
 
 def add_duration_to_total_time(member_id, duration):
     logging.info(f"Adding duration {duration} to total time for member_id: {member_id}")
+    ensure_user_exists(member_id)
     print("Before executing the SQL query...")
     execute_sql('''
         UPDATE user_stats
@@ -346,6 +460,17 @@ def add_duration_to_total_time(member_id, duration):
         WHERE user_id = ?;
     ''', (duration, member_id))
     print("After executing the SQL query...")
+
+    # add to total_sessions
+    execute_sql('''
+        UPDATE user_stats
+        SET total_sessions = total_sessions + 1
+        WHERE user_id = ?;
+    ''', (member_id,))
+
+    print("After executing the SQL query...")
+
+
 
 def add_to_session_history(timestamp, duration, start_member_list, end_member_list, completed_members):
     logging.info(f"Adding to session history: timestamp={timestamp}, duration={duration}, start_members={start_member_list}, end_members={end_member_list}, completed_members={completed_members}")
@@ -358,6 +483,7 @@ def add_to_session_history(timestamp, duration, start_member_list, end_member_li
 
 def update_average_time(member_id):
     logging.info(f"Updating average time for member_id: {member_id}")
+    ensure_user_exists(member_id)
     print("Before executing the SQL query...")
 
     execute_sql('''
@@ -391,7 +517,7 @@ async def test_meditation(ctx, *args):
     voice_channel = ctx.author.voice.channel
     vc = await voice_channel.connect()
     start_members = voice_channel.members
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
     for member in start_members:
         if member != bot.user:
@@ -414,14 +540,12 @@ async def test_meditation(ctx, *args):
     
     add_to_session_history(timestamp, duration, ",".join(start_member_list), ",".join(end_member_list), ",".join(completed_members))
 
-    for member in completed_members:
-        # Ensure the user exists in the user_stats table
-        ensure_user_exists(member)
-
-        # Rest of your code to handle the session
-
+    # check if the user exists in the user_stats table
     for member_id in completed_members:
-        add_to_streak(member_id)
+        ensure_user_exists(member_id)
+        add_streaks(member_id)
+        check_streak_and_update(member_id)
+        add_last_meditation_date(member_id)
         add_duration_to_total_time(member_id, duration)
         update_average_time(member_id)
 
@@ -430,48 +554,46 @@ async def test_meditation(ctx, *args):
     logging.info("test_meditation command execution completed.")
 
 
-
-
 #####---------------------------------------------
 
 
-#stats command
-async def handle_meditation_stats(channel, user_id):
-    # Ensure the user exists in the user_stats table
-    ensure_user_exists(user_id)
+# #stats command
+# async def handle_meditation_stats(channel, user_id):
+#     # Ensure the user exists in the user_stats table
+#     ensure_user_exists(user_id)
 
-    # Query the user_stats table for the user's statistics
-    query = "SELECT streak, total_sessions, total_time, average_time FROM user_stats WHERE user_id = ?"
-    user_stats = execute_sql(query, (user_id,))
+#     # Query the user_stats table for the user's statistics
+#     query = "SELECT streak, total_sessions, total_time, average_time FROM user_stats WHERE user_id = ?"
+#     user_stats = execute_sql(query, (user_id,))
 
-    # Check if stats were found
-    if user_stats:
-        streak, total_sessions, total_time, average_time = user_stats
+#     # Check if stats were found
+#     if user_stats:
+#         streak, total_sessions, total_time, average_time = user_stats
 
-        # Format the message
-        message = (
-            f"🧘 Meditation Stats for <@{user_id}> 🧘\n"
-            f"---------------------------------------\n"
-            f"🔥 Streak: {streak} days\n"
-            f"📆 Total Sessions: {total_sessions}\n"
-            f"⏱ Total Time Meditated: {total_time} minutes\n"
-            f"🕒 Average Session Length: {average_time:.2f} minutes"
-        )
-    else:
-        # If no stats are found, send a message indicating that
-        message = f"No meditation stats found for <@{user_id}>."
+#         # Format the message
+#         message = (
+#             f"🧘 Meditation Stats for <@{user_id}> 🧘\n"
+#             f"---------------------------------------\n"
+#             f"🔥 Streak: {streak} days\n"
+#             f"📆 Total Sessions: {total_sessions}\n"
+#             f"⏱ Total Time Meditated: {total_time} minutes\n"
+#             f"🕒 Average Session Length: {average_time:.2f} minutes"
+#         )
+#     else:
+#         # If no stats are found, send a message indicating that
+#         message = f"No meditation stats found for <@{user_id}>."
 
-    # Send the message to the channel
-    await channel.send(message)
-
-
+#     # Send the message to the channel
+#     await channel.send(message)
 
 
 
-@bot.command()
 
-async def stats(ctx, *args):
-    await handle_meditation_stats(ctx.channel, ctx.author.id)
+
+# @bot.command()
+
+# async def stats(ctx, *args):
+#     await handle_meditation_stats(ctx.channel, ctx.author.id)
 #gotta make it handel args
 # ------------------------------------
 

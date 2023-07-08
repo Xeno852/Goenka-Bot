@@ -1,6 +1,13 @@
+-- DROP TABLE IF EXISTS user_stats;
+-- DROP TABLE IF EXISTS session_history;
+-- -- Uncomment the above lines to reset the database
+
 CREATE TABLE IF NOT EXISTS user_stats (
     user_id TEXT PRIMARY KEY,
-    streak INTEGER DEFAULT 0,
+    total_sessions INTEGER DEFAULT 0,
+    current_streak INTEGER DEFAULT 0,
+    longest_streak INTEGER DEFAULT 0,
+    last_meditation_date TEXT,
     total_time INTEGER DEFAULT 0,
     average_time REAL DEFAULT 0.0
 );
