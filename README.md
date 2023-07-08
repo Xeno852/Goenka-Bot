@@ -13,3 +13,10 @@
 - [ ] Make bot PM user if they broke their streak and give them some words of encouragement and option to reset streak or continue
 - [ ] Do a daily streak detector to reset the database,,,
 
+- [ ] Clean up messies
+- [ ] Implement the dev testing into the main function
+- [ ] Refactor code to use cogs.. (broken for some reason)
+- [ ] Fix bugs..
+    - [ ] If user leaves voice channel mid session they will be permanently muted.. fix this so that once they leave the channel they are unmuted.. or maybe just make it so that the channel is muted for everyone except the bot.. look into this
+    - [ ] 
+
