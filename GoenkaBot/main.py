@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta
-
 import os
 import asyncio
 import sqlite3
 import logging
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from mutagen.mp3 import MP3
 import discord
@@ -11,7 +10,7 @@ from discord.ext import commands
 from utils.helpers import initialize_db
 from meditation import Meditation
 
-DATABASE_PATH = r"C:\Users\lukeb\Desktop\Projects\Goenka-Bot\GoenkaBot\data\meditation.db"
+DATABASE_PATH = r"C:\Users\lukeb\Desktop\Projects\Goenka-Bot\GoenkaBot\data\meditation.db" # If running localy change this to your path
 logging.basicConfig(level=logging.INFO)
 
 
@@ -26,39 +25,59 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Initialize database
 initialize_db()
 
-# Add Meditation cog
-# bot.add_cog(Meditation(bot))
-
-# conn = sqlite3.connect('meditation.db')
-
 # Event when bot is ready
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
-    # check if database is connected
-    # if conn:
-    #     print("Database connected")
-    # else:
-    #     print("Database not connected")
-    
-
 # Ping command
+
 @bot.command()
 async def ping(ctx):
     await ctx.send("Pong!")
 
 
-@bot.command()
-async def db_status(ctx):
-    if conn:
-        await ctx.send("Database connected")
-    else:
-        await ctx.send("Database not connected")
-    
+# --------------------------------------------
+
+# Meditation session class
+class MeditationSession:
+    def __init__(self) -> None:
+        self.duration = None
+        self.intro_chant_bool = None
+        self.outro_chant_bool = None
+        self.intro_chant_path = None
+        self.outro_chant_path = None
+        self.intro_chant_duration = None
+        self.outro_chant_duration = None
+        # what should a meditation session have?
+        # how long it is
+        # if it has an intro chant and outro chant and if so what are their paths
+        # how long the intro chant and outro chant are
+
+        # a function to run the meditation session.. which is the following psudocode:
+        #   play intro chant if there is one..  sleep for the duration of the meditation session minus the intro chant duration and outro chant duration (if there is one).. play outro chant if there is one
+        # if metta meditation is on, play the metta meditation audio file after the outro.. session and account for the duration of the metta meditation audio file
+        # a sub function to play an audio file
+
+
+        # function to configure the default meditation session with the following parameters:
+        # default intro-chant .. default outro-chant .. default duration .. default metta meditation audio file .. default metta meditation duration .. default metta meditation bool
+        # also allow it to be configured within the command itself
+
+        # changing the default may need DB..?
+        # actually if deployed then would need server config DB to store the default meditation session settings
+        # bc then the defaults would be the same for every server
+        # if not deployed then can just store the default meditation session settings in a config file
+
+        #  
+
+        pass
+
+
+
 
 # Start meditation command
 @bot.command()
-async def start_meditation(ctx, duration: int):
+async def old_meditate(ctx, duration: int):
     # Paths to audio files
     intro_chanting_path = "data/audio/intro-chanting.mp3"
     outro_chanting_path = "data/audio/outro-chanting.mp3"
@@ -93,7 +112,7 @@ async def start_meditation(ctx, duration: int):
     vc.play(intro_chant)
     
     # Wait for the meditation duration minus the intro audio duration
-    await asyncio.sleep((duration * 60) - intro_chant_duration)
+    await asyncio.sleep((duration * 60) - (intro_chant_duration + outro_chant_duration))
     
     # Send message indicating session is ending soon
     await ctx.send("Meditation session is coming to an end.")
@@ -143,7 +162,6 @@ async def start_meditation_debug(ctx, duration: int):
     outro_chant_duration = MP3(outro_chanting_path).info.length
     
     members = voice_channel.members
-    # for member in members:
     #     await ctx.send(member.mention)
 
 
@@ -262,11 +280,6 @@ async def full_time_test(ctx):
 
 
 
-# Initialize bot with command prefix
-# bot = commands.Bot(command_prefix='!')
-
-#Database functions
-
 def execute_sql(sql, parameters=()):
     try:
         logging.info(f"Trying to connect to database at {DATABASE_PATH}")
@@ -330,34 +343,6 @@ def update_user_stats(user_id, duration_minutes):
                     (user_id, 1, duration_minutes, duration_minutes, datetime.date.today().isoformat()))
 
 
-
-
-
-# def update_streak(user_id, last_meditated):
-#     # Convert the last_meditated string to a datetime object
-#     last_meditated_date = datetime.strptime(last_meditated, '%Y-%m-%d')
-    
-#     # Get the current date
-#     current_date = datetime.now()
-    
-#     # Calculate the days between the current date and last meditated date
-#     days_diff = (current_date - last_meditated_date).days
-    
-#     # If the user has already meditated today, do nothing
-#     if days_diff == 0:
-#         return
-    
-#     # If the user meditated yesterday, increment the streak
-#     elif days_diff == 1:
-#         update_query = "UPDATE user_stats SET current_streak = current_streak + 1, last_meditated = ? WHERE user_id = ?"
-#         execute_sql(update_query, (current_date.strftime('%Y-%m-%d'), user_id))
-    
-#     # If the user missed a day or more, reset the streak
-#     else:
-#         reset_query = "UPDATE user_stats SET current_streak = 0, last_meditated = ? WHERE user_id = ?"
-#         execute_sql(reset_query, (current_date.strftime('%Y-%m-%d'), user_id))
-
-
 def check_streak_and_update(user_id):
     logging.info(f"Checking streak for member_id: {user_id}")
     conn = sqlite3.connect(DATABASE_PATH)
@@ -388,12 +373,7 @@ def add_streaks(user_id):
     logging.info(f"Adding to streak for member_id: {user_id}")
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
-
-    # Increment the current_streak if the user has not meditated today yet but has meditated yesterday
-    # or if it is 0 update by 1
-#TODO 
     
-
     cursor.execute("""
         UPDATE user_stats
             SET current_streak = current_streak + 1
@@ -402,42 +382,8 @@ def add_streaks(user_id):
     """, (user_id, datetime.now().strftime('%Y-%m-%d'), (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')))
 
 
-    # cursor.execute("""
-    #     UPDATE user_stats
-    #     SET current_streak = current_streak + 1
-    #     WHERE user_id = ?;
-    # """, (user_id,))
-    
-
     conn.commit()
     conn.close()
-
-
-@bot.command()
-async def meditation_stats(ctx, member: discord.Member):
-    # Query to get user stats
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    check_streak_and_update(member.id)
-
-    cursor.execute("SELECT total_sessions, total_time, average_time, current_streak, longest_streak FROM user_stats WHERE user_id=?",                   (str(member.id),))
-    result = cursor.fetchone()
-    conn.close()
-
-    # Display stats
-    if result:
-        total_sessions, total_time, average_time, current_streak, longest_streak = result
-        await ctx.send(f"📈☸️🧘 Meditation Stats for {member.mention} 🧘☸️📈\n"
-                       f"--------------------------------------------\n"
-                       f"🔥 Current Streak: {current_streak} days\n"
-                       f"⭐ Longest Streak: {longest_streak} days\n"
-                       f"📆 Total Sessions: {total_sessions}\n"
-                       f"💧 Total Time Meditated: {total_time} minutes\n"
-                       f"🕒 Average Session Length: {average_time:.2f} minutes")
-    else:
-        await ctx.send(f"No meditation stats found for {member.mention}. 😢")
-
-
 
 def add_last_meditation_date(member_id):
     logging.info(f"Adding last meditation date for member_id: {member_id}")
@@ -449,6 +395,7 @@ def add_last_meditation_date(member_id):
         WHERE user_id = ?;
     ''', (datetime.now().strftime('%Y-%m-%d'), member_id))
     print("After executing the SQL query...")
+
 
 def add_duration_to_total_time(member_id, duration):
     logging.info(f"Adding duration {duration} to total time for member_id: {member_id}")
@@ -471,7 +418,6 @@ def add_duration_to_total_time(member_id, duration):
     print("After executing the SQL query...")
 
 
-
 def add_to_session_history(timestamp, duration, start_member_list, end_member_list, completed_members):
     logging.info(f"Adding to session history: timestamp={timestamp}, duration={duration}, start_members={start_member_list}, end_members={end_member_list}, completed_members={completed_members}")
     print("Before executing the SQL query...")
@@ -480,6 +426,7 @@ def add_to_session_history(timestamp, duration, start_member_list, end_member_li
         VALUES (?, ?, ?, ?, ?);
     ''', (timestamp, duration, start_member_list, end_member_list, completed_members))
     print("After executing the SQL query...")
+
 
 def update_average_time(member_id):
     logging.info(f"Updating average time for member_id: {member_id}")
@@ -494,25 +441,43 @@ def update_average_time(member_id):
 
     print("After executing the SQL query...")
 
-# Other bot code...
 
-#testing the DB and stuff
+
+
+
+# ---------------------------------- #
+#     ------ Bot commands ------     #
+# Move these to become cogs later... #
+# ---------------------------------- #
+
 @bot.command()
-async def test_meditation(ctx, *args):
-    logging.info("test_meditation command invoked.")
-    if not args or args[0] != 'start':
-        await ctx.send("To start the meditation session type !test_meditation start.")
-        return
+async def meditation_start(ctx, duration = -1):
+    logging.info("meditation_start command invoked.")
+# if not args or args[0] != 'start':
+#     await ctx.send("To start the meditation session type !test_meditation start.")
+#     return
+# if args[1]:
 
-    duration = 10
+#   
+    
+    if duration == -1:
+        await ctx.send("You must specify a duration of the meditation session.")
+        return
+    elif duration < 6:
+        await ctx.send("The duration of the meditation session must be at least 6 minutes.")
+        return
+    
     intro_chanting_path = "data/audio/intro-chanting.mp3"
     outro_chanting_path = "data/audio/outro-chanting.mp3"
+    intro_chant = discord.FFmpegPCMAudio(intro_chanting_path)
+    outro_chant = discord.FFmpegPCMAudio(outro_chanting_path)
 
     if ctx.author.voice is None:
         await ctx.send(f"{ctx.author.mention} You must be in a voice channel to start a meditation session.")
         return
     
     await ctx.send(f"{ctx.author.mention} has started a meditation session! Join the voice channel to participate!")
+    await ctx.send(f"Starting meditation session for {duration} minutes.")
     
     voice_channel = ctx.author.voice.channel
     vc = await voice_channel.connect()
@@ -526,7 +491,31 @@ async def test_meditation(ctx, *args):
     start_member_list = [str(member.id) for member in start_members]
     
     # Wait for duration of session
-    await asyncio.sleep(duration)
+
+    intro_duration = MP3(intro_chanting_path).info.length
+    outro_duration = MP3(outro_chanting_path).info.length
+
+    # Play intro audio
+    # sleep for duration of session minus intro audio duration and outro audio duration
+    await ctx.send(f"....DEBUG....")
+    await ctx.send(f"intro_duration: {intro_duration}")
+    await ctx.send(f"outro_duration: {outro_duration}")
+    await ctx.send(f"duration: {duration}")
+    await ctx.send(f"duration in mins: {duration * 60}")
+    await ctx.send(f"sleeping for: {(duration * 60) - (intro_duration)}")
+    await ctx.send(f"EST TIME OF COMPLETION: {datetime.now() + timedelta(seconds=(duration * 60))}")
+    
+    # duration is in minutes, so convert
+    vc.play(intro_chant)
+    # await asyncio.sleep((duration * 60))
+    # await asyncio.sleep((duration * 60) - (intro_duration))
+    # await asyncio.sleep((duration * 60) - (outro_duration))
+    await asyncio.sleep((duration * 60) - intro_duration - outro_duration)
+
+    # Send message indicating session is ending soon
+    await ctx.send("Meditation session is coming to an end soon kinda...")
+    
+    vc.play(outro_chant)
 
     # Get members at end
     members = voice_channel.members
@@ -554,73 +543,30 @@ async def test_meditation(ctx, *args):
     logging.info("test_meditation command execution completed.")
 
 
-#####---------------------------------------------
-
-
-# #stats command
-# async def handle_meditation_stats(channel, user_id):
-#     # Ensure the user exists in the user_stats table
-#     ensure_user_exists(user_id)
-
-#     # Query the user_stats table for the user's statistics
-#     query = "SELECT streak, total_sessions, total_time, average_time FROM user_stats WHERE user_id = ?"
-#     user_stats = execute_sql(query, (user_id,))
-
-#     # Check if stats were found
-#     if user_stats:
-#         streak, total_sessions, total_time, average_time = user_stats
-
-#         # Format the message
-#         message = (
-#             f"🧘 Meditation Stats for <@{user_id}> 🧘\n"
-#             f"---------------------------------------\n"
-#             f"🔥 Streak: {streak} days\n"
-#             f"📆 Total Sessions: {total_sessions}\n"
-#             f"⏱ Total Time Meditated: {total_time} minutes\n"
-#             f"🕒 Average Session Length: {average_time:.2f} minutes"
-#         )
-#     else:
-#         # If no stats are found, send a message indicating that
-#         message = f"No meditation stats found for <@{user_id}>."
-
-#     # Send the message to the channel
-#     await channel.send(message)
-
-
-
-
-
-# @bot.command()
-
-# async def stats(ctx, *args):
-#     await handle_meditation_stats(ctx.channel, ctx.author.id)
-#gotta make it handel args
-# ------------------------------------
-
-
-
-
-
 @bot.command()
-async def vc_mems(ctx):
-    # Check if the user is in a voice channel
-    if ctx.author.voice is None:
-        await ctx.send(f"{ctx.author.mention} You must be in a voice channel.")
-        return
+async def meditation_stats(ctx, member: discord.Member):
+    # Query to get user stats
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    check_streak_and_update(member.id)
 
-    # Get the voice channel
-    voice_channel = ctx.author.voice.channel
+    cursor.execute("SELECT total_sessions, total_time, average_time, current_streak, longest_streak FROM user_stats WHERE user_id=?",                   (str(member.id),))
+    result = cursor.fetchone()
+    conn.close()
 
-    # Retrieve the members in the voice channel
-    members = voice_channel.members
+    # Display stats
+    if result:
+        total_sessions, total_time, average_time, current_streak, longest_streak = result
+        await ctx.send(f"📈☸️🧘 Meditation Stats for {member.mention} 🧘☸️📈\n"
+                       f"--------------------------------------------\n"
+                       f"🔥 Current Streak: {current_streak} days\n"
+                       f"⭐ Longest Streak: {longest_streak} days\n"
+                       f"📆 Total Sessions: {total_sessions}\n"
+                       f"💧 Total Time Meditated: {total_time} minutes\n"
+                       f"🕒 Average Session Length: {average_time:.2f} minutes")
+    else:
+        await ctx.send(f"No meditation stats found for {member.mention}. 😢")
 
-    # Mention each member in the voice channel
-    for member in members:
-        await ctx.send(member.mention)
 
-    member_list = [member.id for member in members]
-    await ctx.send(members)
-    await ctx.send(member_list)
-
-# Run the bot with the token
+# ------------------------------------
 bot.run(token)
