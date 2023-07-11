@@ -20,3 +20,7 @@
     - [ ] If user leaves voice channel mid session they will be permanently muted.. fix this so that once they leave the channel they are unmuted.. or maybe just make it so that the channel is muted for everyone except the bot.. look into this
     - [ ] 
 
+- [ ] Make trend graphs.. maybe like Github's contribution graph.. but for meditation..
+- [ ] Maybe make a web app to display the graphs and stats.. and maybe a leaderboard..
+
+- [ ]

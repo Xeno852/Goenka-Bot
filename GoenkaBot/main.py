@@ -79,8 +79,8 @@ class MeditationSession:
 @bot.command()
 async def old_meditate(ctx, duration: int):
     # Paths to audio files
-    intro_chanting_path = "data/audio/intro-chanting.mp3"
-    outro_chanting_path = "data/audio/outro-chanting.mp3"
+    intro_chanting_path = "data/intros/Juhu-Mumbai_1987_intro.mp3"
+    outro_chanting_path = "data/outros/Juhu-Mumbai_1987_outro.mp3"
     # Load audio files
     intro_chant = discord.FFmpegPCMAudio(intro_chanting_path)
     outro_chant = discord.FFmpegPCMAudio(outro_chanting_path)
@@ -449,28 +449,23 @@ def update_average_time(member_id):
 #     ------ Bot commands ------     #
 # Move these to become cogs later... #
 # ---------------------------------- #
-
 @bot.command()
-async def meditation_start(ctx, duration = -1):
+async def meditation_start(ctx, duration: int = -1):
     logging.info("meditation_start command invoked.")
-# if not args or args[0] != 'start':
-#     await ctx.send("To start the meditation session type !test_meditation start.")
-#     return
-# if args[1]:
 
-#   
-    
     if duration == -1:
-        await ctx.send("You must specify a duration of the meditation session.")
+        await ctx.send("You must specify a duration for the meditation session.")
         return
     elif duration < 6:
-        await ctx.send("The duration of the meditation session must be at least 6 minutes.")
+        await ctx.send("The duration of the meditation session must be at least 6 minutes (needs to have time to play an intro and outro).")
         return
-    
-    intro_chanting_path = "data/audio/intro-chanting.mp3"
-    outro_chanting_path = "data/audio/outro-chanting.mp3"
-    intro_chant = discord.FFmpegPCMAudio(intro_chanting_path)
-    outro_chant = discord.FFmpegPCMAudio(outro_chanting_path)
+
+    #These paths should be able to be modified by the user.. so TODO: make them configurable
+    intro_chanting_path = r"C:\Users\lukeb\Desktop\Projects\Goenka-Bot\GoenkaBot\data\audio\intros\Juhu-Mumbai_1987_intro.mp3"
+    outro_chanting_path = r"C:\Users\lukeb\Desktop\Projects\Goenka-Bot\GoenkaBot\data\audio\outros\Juhu-Mumbai_1987_outro.mp3"
+    intro_chant, outro_chant = discord.FFmpegPCMAudio(intro_chanting_path), discord.FFmpegPCMAudio(outro_chanting_path)
+    # intro_chanting_path, outro_chanting_path = "data/audio/intro-chanting.mp3", "data/audio/outro-chanting.mp3"
+
 
     if ctx.author.voice is None:
         await ctx.send(f"{ctx.author.mention} You must be in a voice channel to start a meditation session.")
@@ -503,21 +498,28 @@ async def meditation_start(ctx, duration = -1):
     await ctx.send(f"duration: {duration}")
     await ctx.send(f"duration in mins: {duration * 60}")
     await ctx.send(f"sleeping for: {(duration * 60) - (intro_duration)}")
-    await ctx.send(f"EST TIME OF COMPLETION: {datetime.now() + timedelta(seconds=(duration * 60))}")
-    
-    # duration is in minutes, so convert
+    await ctx.send(f"EST TIME OF COMPLETION: {datetime.now() + timedelta(seconds=(duration * 60)) }")
+
+
+    await ctx.send("Meditation session is starting... intro now playing")
     vc.play(intro_chant)
-    # await asyncio.sleep((duration * 60))
-    # await asyncio.sleep((duration * 60) - (intro_duration))
-    # await asyncio.sleep((duration * 60) - (outro_duration))
-    await asyncio.sleep((duration * 60) - intro_duration - outro_duration)
+    while vc.is_playing():
+        await asyncio.sleep(1) # sleeping until the intro is done playing
+
+
+    await asyncio.sleep((duration * 60) - intro_duration - outro_duration)  # sleep for duration..
 
     # Send message indicating session is ending soon
-    await ctx.send("Meditation session is coming to an end soon kinda...")
     
+    await ctx.send("Meditation session is ending... outro now playing")
     vc.play(outro_chant)
-
+    while vc.is_playing():
+        await asyncio.sleep(1) # sleeping until the intro is done playing
     # Get members at end
+
+
+    await ctx.send("Meditation session has ended.")
+    
     members = voice_channel.members
     end_member_list = [str(member.id) for member in members]
     
@@ -527,6 +529,8 @@ async def meditation_start(ctx, duration = -1):
         
     completed_members = [member_id for member_id in start_member_list if member_id in end_member_list]
     
+    await ctx.send(f"Completed members: {completed_members}")
+
     add_to_session_history(timestamp, duration, ",".join(start_member_list), ",".join(end_member_list), ",".join(completed_members))
 
     # check if the user exists in the user_stats table
