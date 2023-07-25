@@ -492,12 +492,12 @@ async def meditation_start(ctx, duration: int = -1):
 
     # Play intro audio
     # sleep for duration of session minus intro audio duration and outro audio duration
-    await ctx.send(f"....DEBUG....")
-    await ctx.send(f"intro_duration: {intro_duration}")
-    await ctx.send(f"outro_duration: {outro_duration}")
-    await ctx.send(f"duration: {duration}")
-    await ctx.send(f"duration in mins: {duration * 60}")
-    await ctx.send(f"sleeping for: {(duration * 60) - (intro_duration)}")
+    # await ctx.send(f"....DEBUG....")
+    # await ctx.send(f"intro_duration: {intro_duration}")
+    # await ctx.send(f"outro_duration: {outro_duration}")
+    # await ctx.send(f"duration: {duration}")
+    # await ctx.send(f"duration in mins: {duration * 60}")
+    # await ctx.send(f"sleeping for: {(duration * 60) - (intro_duration)}")
     await ctx.send(f"EST TIME OF COMPLETION: {datetime.now() + timedelta(seconds=(duration * 60)) }")
 
 
